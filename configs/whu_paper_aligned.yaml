@@ -1,0 +1,269 @@
+experiment_name: whu_surge_paper_aligned
+data:
+  datasets:
+  - name: whu_opt_sar512
+    root: data/whu_opt_sar512
+  split_dir: splits
+  split_group_key: source_id
+  validation_ratio: 0.1
+  balanced_sampling: false
+  use_sar_content_mask: true
+  sar_black_threshold: 0.0078431373
+  content_mask:
+    enabled: true
+    optical_dark_threshold: 0.01
+    sar_dark_threshold: 0.008
+    variance_kernel: 7
+    optical_variance_threshold: 5.0e-05
+    sar_variance_threshold: 2.0e-05
+    patch_valid_ratio: 0.6
+  num_workers: 2
+  pin_memory: false
+  persistent_workers: false
+  augment:
+    enabled: false
+    relative_affine_probability: 0.2
+    relative_rotation_degrees: 2.0
+    relative_scale: 0.02
+    relative_translation_pixels: 4.0
+    horizontal_flip_probability: 0.5
+    vertical_flip_probability: 0.5
+    rotate90_probability: 0.25
+    optical_brightness: 0.15
+    optical_contrast: 0.15
+    optical_gamma: 0.12
+    optical_saturation: 0.1
+    optical_noise_std: 0.005
+    optical_blur_probability: 0.1
+    optical_resolution_probability: 0.1
+    sar_contrast: 0.15
+    sar_gamma: 0.15
+    sar_log_speckle_std: 0.1
+    sar_noise_std: 0.01
+    sar_blur_probability: 0.1
+    sar_resolution_probability: 0.1
+    random_erasing_probability: 0.05
+    erase_min_fraction: 0.03
+    erase_max_fraction: 0.08
+  center_crop_size:
+  - 400
+  - 400
+model:
+  geometry:
+    affine_enabled: true
+    residual_enabled: false
+  dino:
+    repo_dir: backbone/dinov3
+    weights: backbone/dinov3_vitl16_pretrain_sat493m-eadcf0ff.pth
+    freeze: true
+    input_size: 400
+    feature_dim: 1024
+    mean:
+    - 0.43
+    - 0.411
+    - 0.296
+    std:
+    - 0.213
+    - 0.156
+    - 0.143
+  csle:
+    stem_dim: 48
+  fusion:
+    dim: 256
+  coarse:
+    projection_dim: 256
+    adapter_dim: 64
+    node_adapter_dropout: 0.1
+    temperature: 0.07
+    topk: 8
+    pre_topk: 24
+    graph_topk: 8
+    graph_enabled: true
+    uot_enabled: true
+    graph_rounds: 2
+    graph_neighbors: 8
+    semantic_k: 4
+    structure_k: 4
+    dynamic_graph_enabled: true
+    gat_enabled: true
+    gat_layers: 2
+    gat_heads: 4
+    gat_dropout: 0.1
+    gat_edge_dim: 16
+    multiscale_uot_enabled: false
+    multiscale_uot_dim: 96
+    s8_window_radius: 4
+    s4_window_radius: 3
+    local_uot_iterations: 8
+    local_uot_epsilon: 0.08
+    local_uot_tau_source: 0.8
+    local_uot_tau_target: 0.8
+    local_uot_dustbin_score: -1.0
+    prior_blend_max: 0.75
+    relation_dim: 32
+    relation_dropout: 0.1
+    relation_weight: 1.0
+    geometry_weight: 1.0
+    graph_support_weight: 0.5
+    mutual_weight: 0.25
+    relation_temperature: 0.2
+    cycle_mass_threshold: 1.0e-05
+    uot_epsilon: 0.08
+    uot_tau_source: 0.8
+    uot_tau_target: 0.8
+    dustbin_score: -1.0
+    uot_iterations: 12
+    match_residual_radius: 2.0
+    spatial_only: true
+    relation_support_mode: neighborhood_probability
+    dustbin_enabled: false
+  affine:
+    regularization: 0.0001
+    irls_iterations: 2
+    huber_delta: 0.05
+    condition_threshold: 10000000
+    min_weight: 1.0e-06
+    balance_grid: 4
+    min_spatial_cells: 3
+    min_affine_points: 6
+    normalize_fit_weights: true
+  coarse_recovery:
+    enabled: false
+    search_radius: 3
+    window_size: 7
+    temperature: 0.07
+  fine:
+    channels:
+    - 128
+    - 96
+    - 64
+    - 48
+    - 32
+    mode: sgu_flow
+    tsfr:
+      descriptor_dim: 32
+      window_s4: 7
+      window_s2: 5
+      temperature: 0.12
+      grid_stride_s4: 2
+      irls_iterations: 2
+      huber_delta_px: 3.0
+      min_points: 12
+      max_correction_px: 30.0
+      initial_confidence_floor: 0.02
+    sgu_flow:
+      geometry_fit_stride: 2
+      uot_flow:
+        descriptor_dim: 32
+        semantic_k: 4
+        prototype_side: 8
+        radius_s8: 3
+        radius_s4: 2
+        iterations: 5
+        epsilon: 0.2
+        tau_source: 0.8
+        tau_target: 0.8
+        dustbin_score: 0.0
+        attention_temperature: 0.2
+        geometry_cost_weight: 0.1
+        max_blend: 0.7
+        flow_gate_mode: calibrated_single
+        ot_gate_logit_bias: 1.5
+        residual_radius: 2.0
+        dustbin_enabled: false
+      subpixel:
+        descriptor_dim: 32
+        radius: 2
+        temperature: 0.15
+        residual_radius: 1.0
+        sampling_mode: continuous
+      output_mode: affine_global_residual
+      output_revision: 5
+      affine_output:
+        residual_max_px: 0.0
+        residual_smoothing_kernel: 5
+        fit_irls_iterations: 2
+        fit_huber_delta_px: 3.0
+        balance_grid: 4
+        balance_max_gain: 4.0
+      progressive_geometry:
+        enabled: true
+        residual_max_px: 1.0
+        residual_smoothing_kernel: 3
+        fit_grid_step: 1
+        fit_irls_iterations: 2
+        fit_huber_delta_px: 3.0
+        balance_grid: 4
+        balance_max_gain: 4.0
+    tfe_enabled: false
+loss:
+  w_total_flow: 1.0
+  w_affine_corner: 0.1
+  w_affine_flow: 0.0
+  w_residual: 0.0
+  w_match: 0.05
+  w_candidate: 0.0
+  w_relation: 0.005
+  w_cycle: 0.0
+  w_residual_smooth: 0.0
+  w_residual_magnitude: 0.0
+  w_residual_consistency: 0.0
+  scale_weights:
+  - 0.2
+  - 0.3
+  - 0.5
+  charbonnier_epsilon: 0.001
+  affine_edge_midpoints: true
+  w_fine_points: 0.0
+  w_final_full: 0.0
+  w_local_uot: 0.1
+  w_geometry_consistency: 0.0
+  w_initial_affine: 0.0
+  objective_mode: paper_four_terms
+  relation_eta: 0.1
+training:
+  output_dir: runs/whu_paper_aligned
+  epochs: 100
+  batch_size: 2
+  accumulation_steps: 16
+  learning_rate_coarse: 0.0001
+  learning_rate_fine: 0.0002
+  learning_rate_recovery: 0.0001
+  min_learning_rate_coarse: 1.0e-05
+  min_learning_rate_fine: 2.0e-05
+  warmup_epochs: 2
+  warmup_start_ratio: 0.1
+  recovery_warmup_epochs: 2
+  recovery_warmup_start_ratio: 0.1
+  scheduler: warmup_cosine_floor
+  weight_decay: 0.0005
+  amp: true
+  gradient_clip: 1.0
+  print_every: 20
+  save_every: 1
+  save_epoch_checkpoints: false
+  early_stopping_patience: 10
+  early_stopping_min_delta: 0.01
+  resume: ''
+  history_mode: compact
+  restart_scheduler_on_resume: false
+  constant_lr: false
+  cosine_cycle_epochs: 0
+  resume_warmup_epochs: 2
+  resume_mode: exact
+  dry_run_resume: false
+  stop_after_epoch: 0
+  reset_early_stopping_on_resume: false
+evaluation:
+  output_dir: runs/whu_paper_aligned/evaluation
+  batch_size: 1
+  amp: true
+  checkpoint: runs/whu_paper_aligned/best.pt
+visualization:
+  output_dir: runs/whu_paper_aligned/visualizations
+  checkpoint: runs/whu_paper_aligned/best.pt
+  grid_step: 16
+  max_points: 500
+  checker_size: 32
+  alpha: 0.5
+methodology: surge_paper_v1

@@ -1,0 +1,14 @@
+extends: whu_paper_aligned.yaml
+experiment_name: os_surge_paper_aligned
+data:
+  datasets:
+  - name: os_dataset
+    root: data/os_dataset
+training:
+  output_dir: runs/os_paper_aligned
+evaluation:
+  output_dir: runs/os_paper_aligned/evaluation
+  checkpoint: runs/os_paper_aligned/best.pt
+visualization:
+  output_dir: runs/os_paper_aligned/visualizations
+  checkpoint: runs/os_paper_aligned/best.pt
